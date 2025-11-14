@@ -1,14 +1,14 @@
 % 01/06/2023
 % This function works for differents scheme on Cgrid and Fgird
  
-function linearlotka(T,a,b,c,alpha,L,limit,yin,ytg,figlinear)%[errDt,sol]=paraoptNumLotkaEq()
+function linearlotka(T,a,b,c,d,alpha,L,limit,yin,ytg,figlinear)%[errDt,sol]=paraoptNumLotkaEq()
     %%%%% Espace data
     %T=1;
     line=1.6; Fontsize=14;
     marker=4;
     colors=[1,0,0;0,0,1;0,0.6667,0];
     labelsize=12;
-    sigma=a;%8;
+    sigma=a;%8
     %b2=0.2;
 %alpha=5e-2;
     %yin=[20;5];
@@ -21,7 +21,7 @@ function linearlotka(T,a,b,c,alpha,L,limit,yin,ytg,figlinear)%[errDt,sol]=paraop
     %L=10;
     DT=T/L;
     M=2^limit;
-    calL=[sigma,0;0,-b];%[8,0;0,-1];
+    calL=[a,0;0,-d];%[8,0;0,-1];
     %if scheme==3
     %M=2^10;
     %%% Euler explicit 
@@ -65,8 +65,8 @@ function linearlotka(T,a,b,c,alpha,L,limit,yin,ytg,figlinear)%[errDt,sol]=paraop
      for i=1:limit-1
 	     MDt=matrix(calL,B,r,A,b,s,L,N(i),Dt(i),alpha,d);
 	     raidus(i)=spectralradius(itermatrix(MDt,Mdt));
-	     EstimateBound(i)=sigma*(Dt(i)-dt)*(0.5+...
-    (sigma*(Dt(i)-dt)/2+1)*exp(2*sigma*DT)); 
+	     EstimateBound(i)=max(sigma*(Dt(i)-dt)*(0.5+...
+    (sigma*(Dt(i)-dt)/2+1)*exp(2*sigma*DT)), 2.32*(Dt(i)-dt)*sigma); 
     convFactor(i)=errDt(i,2)/errDt(i,1);     
 	end
 	figure(figlinear)

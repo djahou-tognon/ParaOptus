@@ -1,23 +1,68 @@
-function err=nonlinearproblemLotkaEq(power)
-size_marker=8;warning off;
-L		=8;
-x0		= 20;
-xtarget 	= 0.0;
-y0		= 3;
-ytarget 	=1.0;
-    %%%%%%%%%%%%%%%%%%%%%
-N		= 2^14;
-N0		=N*L;factorial(8)*3;.5*1e2;
+function nonlinearlotka(T,a,b,c,alpha,L,limit,ratio,yin,ytg,fignonlinear)
+line=1.6; Fontsize=14;
+marker=4;
+colors=[1,0,0;0,0,1;0,0.6667,0];
+labelsize=12;
+DT=T/L;
+dt=DT/2^limit;
+Dt=dt./abs(ratio);
+convFactor=[];
 
-fprintf(2,'\t -- Computation of the solution  --\n')
+iter=0;
+Z=[];
+fprintf(2,'\t\t ============== \n Computation of reference solution !\n');
+[Z,~]=nonlinearproblemLotkaEq(T,a,b,c,alpha,L,limit,1,yin,ytg,Z);
+for r=ratio
+	iter=iter+1;
+	fprintf(2,'\t\t ============== \n Computation of solution for Ratio=%e\n',r);	
+	[~,convFactor(iter)]=nonlinearproblemLotkaEq(T,a,b,c,alpha,L,limit,r,yin,ytg,Z);
+end
+%save('nonlinearLotka.mat','conFactor','Z');
+%load('nonlinearLotka.mat')
+EstimateBound=max(a*Dt.*(0.5+(0.5*a*Dt+1)*exp(2*a*DT)), 2.32*c*Dt); 
+figure(fignonlinear)
+   loglog(Dt,EstimateBound, ...
+    'Color', [colors(1,:)], ...      
+    'LineStyle', '-', ...           
+    'LineWidth', line, ...             
+    'Marker', 'd', ...              
+    'MarkerSize', marker,...
+    'DisplayName','Upper Bound'...
+    );
+	hold on
+
+	loglog(Dt,convFactor, ...
+    'Color', [colors(3,:)], ...      
+    'LineStyle', '--', ...           
+    'LineWidth', line, ...             
+    'Marker', 's', ...              
+    'MarkerSize', marker,...
+    'DisplayName','$\hat\rho$'...
+    );
+
+	 xlabel('$\Delta t$','interpreter','latex','FontSize',Fontsize);
+     ylabel('$\hat\rho$','interpreter','latex','FontSize',Fontsize);
+     legend('interpreter','latex','FontWeight','bold','Location','northwest','FontSize',12);
+     set(gca,'FontSize',labelsize);
+     grid on
+     hold off
+end
+
+function [Sol,rho]=nonlinearproblemLotkaEq(T,a,b,c,alpha,L,limit,ratio,yin,ytg,Z)
+size_marker=8;warning off;
+x0		= yin(1);
+xtarget 	=ytg(1);
+y0		= yin(2);
+ytarget 	=ytg(2);
+    %%%%%%%%%%%%%%%%%%%%%
+N		= 2^limit;
+N0		=N*L;
+
+%fprintf(2,'\t -- Computation of the solution  --\n')
 compt		= 0;
-load('solutionLotkaNonlinear.mat');
-alpha		= 0.01;
-T_court		=1;%1/3;
-T		= T_court;1;
+%load('SolutionNonlinearLotkaData.mat');
 t		= linspace(0,T,N0+1);
 dt		= t(2)-t(1);
-%Fig		= 1;
 Newton		= 1;
 
 
@@ -28,23 +73,18 @@ Sol		= [linspace(x0,xtarget,L+1)' ; ...%x(1:N0/L:end)';...%
 
 Tol_Newt	= 1e-13;
 Err_Newt	= 1 ;
-
-%initialisation
-%x_temp		= linspace(x0,xtarget,L*N+1);
-%y_temp		= linspace(y0,ytarget,L*N+1);
-%x_temp		=[x0,zeros(1,L*N-1),xtarget];
-%y_temp		=[y0,zeros(1,L*N-1),ytarget];
 x_temp		=[x0,ones(1,L*N-1),xtarget];
 y_temp		=[y0,ones(1,L*N-1),ytarget];
 tabXl		= reshape(x_temp(2:end),N,L);
 tabYl		= reshape(y_temp(2:end),N,L);
-tabLaXl		= zeros(N,L);ones(N,L);
-tabLaYl		= zeros(N,L);ones(N,L);
+tabLaXl		= ones(N,L);
+tabLaYl		= ones(N,L);
 
-ratio		= 2^(-power);%[log10(N)]);%Liste_ratio		= 10.^(-[0:log10(N)]);
+%ratio		= 2^(-power);%[log10(N)]);%Liste_ratio		= 10.^(-[0:log10(N)]);
 Napprox		= N*ratio;% M
 err=[];
-fprintf(2,'\t\t ============== \n Ratio=%e|L=1e%i|N0=1e%i|N=1e%i|Napprox=1e%i\n\t\t ==============\n\n',ratio,log10(L),log10(N0),log10(N),log10(Napprox))
+rho=0;
+%fprintf(2,'\t\t ============== \n L=1e%i|N0=1e%i|N=1e%i|Napprox=1e%i\n\t\t ==============\n\n',ratio,log10(L),log10(N0),log10(N),log10(Napprox))
 iter		= 0;
 %tic;
 %ticBytes(gcp);
@@ -56,17 +96,17 @@ iter		= 0;
 			LaY			= Sol(3*L+3:4*L+2);
 			if L==1
 				Compute_grad=1;
-				[F,G,~,~,~,~,dFapprox,dGapprox]=pb_NL2(N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,...
+				[F,G,~,~,~,~,dFapprox,dGapprox]=pb_NL2(a,b,c,N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,...
                                                          		 	        	 y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Newton,Compute_grad);
 			else
 				fprintf(2,'\t\t *********** Pbs Fins *********** \n ')
 				Compute_grad=0;
 				
-				[F,G,tabXl,tabLaXl,tabYl,tabLaYl]=pb_NL2(N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,...
+				[F,G,tabXl,tabLaXl,tabYl,tabLaYl]=pb_NL2(a,b,c,N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,...
                                                         		 					 y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Newton,Compute_grad);
 				fprintf(2,'\t\t ***** Pbs Grossiers ***** \n ')
 				Compute_grad=1;
-				[~,~,~,~,~,~,dFapprox,dGapprox]=pb_NL2(Napprox,L,alpha,x0,xtarget,X,LaX,tabXl(1:N/Napprox:end,:),tabLaXl(1:N/Napprox:end,:),...
+				[~,~,~,~,~,~,dFapprox,dGapprox]=pb_NL2(a,b,c,Napprox,L,alpha,x0,xtarget,X,LaX,tabXl(1:N/Napprox:end,:),tabLaXl(1:N/Napprox:end,:),...
                                                      	     			           y0,ytarget,Y,LaY,tabYl(1:N/Napprox:end,:),tabLaYl(1:N/Napprox:end,:),dt/ratio,Newton,Compute_grad);
 			%[~,~,~,~,~,~,dFapprox,dGapprox]=pb_NL2(Napprox,L,alpha,x0,xtarget,X,LaX,tabXl(1:r:end,:),tabLaXl(1:r:end,:),...
                         %                             	     			           y0,ytarget,Y,LaY,tabYl(1:r:end,:),tabLaYl(1:r:end,:),dt/ratio,Newton,Compute_grad);
@@ -76,9 +116,27 @@ iter		= 0;
 			Err_Newt		= norm(dSol);
            tabx=tabXl;
             taby=tabYl;
-			cost			= (tabXl(end,end)-xtarget)^2+(tabYl(end,end)-ytarget)^2+1/alpha*sum(tabLaXl(:).^2+tabLaYl(:).^2)*dt;
-					h = figure(81);
-				      	for l=1:L
+			%cost			= (tabXl(end,end)-xtarget)^2+(tabYl(end,end)-ytarget)^2+1/alpha*sum(tabLaXl(:).^2+tabLaYl(:).^2)*dt;
+					
+				    %  	for l=1:L
+					%	title('Optimal trajectory of Lotka-Volterra system','interpreter','latex','FontSize',Fontsize);
+		  			%	plot(...%[x((l-1)/L*N0+1:l/L*N0)], [y((l-1)/L*N0+1:l/L*N0)], 'b--',...
+					%	     tabXl(:,l),tabYl(:,l),'k',x0,y0,'g.',xtarget,ytarget,'r.','Markersize',size_marker); ...
+		  				%plot(tabx(:,l),taby(:,l),'--k','LineWidth',1);
+                     %  hold on;
+	      			 %     	end;
+	     			  %    	hold off;
+	     			%	xlabel('Prey','interpreter','latex');
+	     		   	%ylabel('Predactor','interpreter','latex');
+				%		drawnow
+			fprintf(2,'\t |Iter=%i|Err_Newt=%e|\n',iter,Err_Newt)
+           if length(Z)~=0
+			err(iter)=norm(Z-Sol);
+		   end
+		end%while
+		h = figure(255);
+			for l=1:L
+						title('Optimal trajectory of Lotka-Volterra system','interpreter','latex');
 		  				plot(...%[x((l-1)/L*N0+1:l/L*N0)], [y((l-1)/L*N0+1:l/L*N0)], 'b--',...
 						     tabXl(:,l),tabYl(:,l),'k',x0,y0,'g.',xtarget,ytarget,'r.','Markersize',size_marker); ...
 		  				%plot(tabx(:,l),taby(:,l),'--k','LineWidth',1);
@@ -88,27 +146,19 @@ iter		= 0;
 	     				xlabel('Prey','interpreter','latex');
 	     		   	ylabel('Predactor','interpreter','latex');
 				%		drawnow
-			fprintf(2,'\t Ratio=%e|Iter=%i|Err_Newt=%e|J=%f\n',ratio,iter,Err_Newt,cost)
-           err(iter)=norm(Z-Sol);
-          % err(iter)=norm(Sol-z,2);
-          % it=iter;
-          %Cost(iter)=cost;
-   %   z=Sol;
-		end%while
-%end_time=cputime-start_time
-%pr
-%int('The computing time is \t', end_time);
-%tocBytes(gcp);
-%toc
-%save('solutionLotkaNonlinear.mat','Sol');
+		if length(Z)~=0
+		rho=convergenceFactor(err);
+		end
 end%function
-
+function rho=convergenceFactor(error)
+	rho=error(end-2)/error(end-3);
+end
 %----------------------------- --------------------------------------------------------------
-function      [F,G,tabXl,tabLaXl,tabYl,tabLaYl,dF,dG]=pb_NL2(N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Newton,Compute_grad)
+function      [F,G,tabXl,tabLaXl,tabYl,tabLaYl,dF,dG]=pb_NL2(a,b,c,N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Newton,Compute_grad)
 %disp(N);
 %disp(L);
 %disp(dt);
-a =2; b = 1; c = 3;
+d=a; c = b;
 f	=@(x,y,Lax,Lay)  x.*(a-b*y)-Lax/alpha ; ...
 dfx	=@(x,y,Lax,Lay)( a-b*y);%
 dfy	=@(x,y,Lax,Lay)(-b*x );%
@@ -116,9 +166,9 @@ dfxLa	=@(x,y,Lax,Lay) (-1/alpha)*ones(size(Lax));
 dfyLa  =@(x,y,Lax,Lay) (0*Lay);
 %%%%%%%%
 
-g	=@(x,y,Lax,Lay)( -c*y)-Lay/alpha;
-dgx	=@(x,y,Lax,Lay)( 0*x);
-dgy	=@(x,y,Lax,Lay)( -c*ones(size(y))  );
+g	=@(x,y,Lax,Lay) y.*(-d+c*x)-Lay/alpha;
+dgx	=@(x,y,Lax,Lay)( c*y);
+dgy	=@(x,y,Lax,Lay)( -d+c*x  );
 dgxLa	=@(x,y,Lax,Lay)(0*Lax		    	           );
 dgyLa	=@(x,y,Lax,Lay)(-1/alpha)*ones(size(Lay));
 %dgxy	=@(x,y)( 0*x   );
@@ -137,13 +187,13 @@ df3y	=@(x,y,Lax,Lay) (0*y);
 df3Lax	=@(x,y,Lax,Lay) (0*Lax);
 df3Lay	=@(x,y,Lax,Lay) (0*Lay);
 
-f2	=@(x,y,Lax,Lay) (0*x);
+f2	=@(x,y,Lax,Lay) (c*y);
 df2x	=@(x,y,Lax,Lay) (0*x);
 df2y	=@(x,y,Lax,Lay) (0*y);
 df2Lax	=@(x,y,Lax,Lay) (0*Lax);
 df2Lay	=@(x,y,Lax,Lay) (0*Lay);
 
-f4	=@(x,y,Lax,Lay) (-c*ones(size(x)));
+f4	=@(x,y,Lax,Lay) (-c*);
 df4x	=@(x,y,Lax,Lay) (0*x);
 df4y	=@(x,y,Lax,Lay) (0*y);
 df4Lax	=@(x,y,Lax,Lay) (0*Lax);
@@ -406,4 +456,5 @@ end
 %fprintf(2,'\t\t Fin assemblage F et dF\n')
 
 end
+
 

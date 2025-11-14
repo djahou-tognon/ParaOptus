@@ -1,4 +1,4 @@
-function nonlinearlotka(T,a,b,c,alpha,L,limit,ratio,yin,ytg,fignonlinear)
+function nonlinearlotka(T,a,b,c,d,alpha,L,limit,ratio,yin,ytg,fignonlinear)
 line=1.6; Fontsize=14;
 marker=4;
 colors=[1,0,0;0,0,1;0,0.6667,0];
@@ -11,15 +11,15 @@ convFactor=[];
 iter=0;
 Z=[];
 fprintf(2,'\t\t ============== \n Computation of reference solution !\n');
-[Z,~]=nonlinearproblemLotkaEq(T,a,b,c,alpha,L,limit,1,yin,ytg,Z);
+[Z,~]=nonlinearproblemLotkaEq(T,a,b,c,d,alpha,L,limit,1,yin,ytg,Z);
 for r=ratio
 	iter=iter+1;
 	fprintf(2,'\t\t ============== \n Computation of solution for Ratio=%e\n',r);	
-	[~,convFactor(iter)]=nonlinearproblemLotkaEq(T,a,b,c,alpha,L,limit,r,yin,ytg,Z);
+	[~,convFactor(iter)]=nonlinearproblemLotkaEq(T,a,b,c,d,alpha,L,limit,r,yin,ytg,Z);
 end
 %save('nonlinearLotka.mat','conFactor','Z');
 %load('nonlinearLotka.mat')
-EstimateBound=a*(Dt-dt).*(0.5+(a*(Dt-dt)/2+1)*exp(2*a*DT)); 
+EstimateBound=max(a*Dt.*(0.5+(0.5*a*Dt+1)*exp(2*a*DT)), 2.32*d*Dt); 
 figure(fignonlinear)
    loglog(Dt,EstimateBound, ...
     'Color', [colors(1,:)], ...      
@@ -48,7 +48,7 @@ figure(fignonlinear)
      hold off
 end
 
-function [Sol,rho]=nonlinearproblemLotkaEq(T,a,b,c,alpha,L,limit,ratio,yin,ytg,Z)
+function [Sol,rho]=nonlinearproblemLotkaEq(T,a,b,c,d,alpha,L,limit,ratio,yin,ytg,Z)
 size_marker=8;warning off;
 x0		= yin(1);
 xtarget 	=ytg(1);
@@ -102,11 +102,11 @@ iter		= 0;
 				fprintf(2,'\t\t *********** Pbs Fins *********** \n ')
 				Compute_grad=0;
 				
-				[F,G,tabXl,tabLaXl,tabYl,tabLaYl]=pb_NL2(a,b,c,N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,...
+				[F,G,tabXl,tabLaXl,tabYl,tabLaYl]=pb_NL2(a,b,c,d,N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,...
                                                         		 					 y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Newton,Compute_grad);
 				fprintf(2,'\t\t ***** Pbs Grossiers ***** \n ')
 				Compute_grad=1;
-				[~,~,~,~,~,~,dFapprox,dGapprox]=pb_NL2(a,b,c,Napprox,L,alpha,x0,xtarget,X,LaX,tabXl(1:N/Napprox:end,:),tabLaXl(1:N/Napprox:end,:),...
+				[~,~,~,~,~,~,dFapprox,dGapprox]=pb_NL2(a,b,c,d,Napprox,L,alpha,x0,xtarget,X,LaX,tabXl(1:N/Napprox:end,:),tabLaXl(1:N/Napprox:end,:),...
                                                      	     			           y0,ytarget,Y,LaY,tabYl(1:N/Napprox:end,:),tabLaYl(1:N/Napprox:end,:),dt/ratio,Newton,Compute_grad);
 			%[~,~,~,~,~,~,dFapprox,dGapprox]=pb_NL2(Napprox,L,alpha,x0,xtarget,X,LaX,tabXl(1:r:end,:),tabLaXl(1:r:end,:),...
                         %                             	     			           y0,ytarget,Y,LaY,tabYl(1:r:end,:),tabLaYl(1:r:end,:),dt/ratio,Newton,Compute_grad);
@@ -154,11 +154,11 @@ function rho=convergenceFactor(error)
 	rho=error(end-2)/error(end-3);
 end
 %----------------------------- --------------------------------------------------------------
-function      [F,G,tabXl,tabLaXl,tabYl,tabLaYl,dF,dG]=pb_NL2(a,b,c,N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Newton,Compute_grad)
+function      [F,G,tabXl,tabLaXl,tabYl,tabLaYl,dF,dG]=pb_NL2(a,b,c,d,N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Newton,Compute_grad)
 %disp(N);
 %disp(L);
 %disp(dt);
-%a = 5; b = 0.2; c = b;
+%d=a; c = b;
 f	=@(x,y,Lax,Lay)  x.*(a-b*y)-Lax/alpha ; ...
 dfx	=@(x,y,Lax,Lay)( a-b*y);%
 dfy	=@(x,y,Lax,Lay)(-b*x );%
@@ -166,9 +166,9 @@ dfxLa	=@(x,y,Lax,Lay) (-1/alpha)*ones(size(Lax));
 dfyLa  =@(x,y,Lax,Lay) (0*Lay);
 %%%%%%%%
 
-g	=@(x,y,Lax,Lay)( -c*y)-Lay/alpha;
-dgx	=@(x,y,Lax,Lay)( 0*x);
-dgy	=@(x,y,Lax,Lay)( -c*ones(size(y))  );
+g	=@(x,y,Lax,Lay) y.*(-d+c*x)-Lay/alpha;
+dgx	=@(x,y,Lax,Lay)( c*y);
+dgy	=@(x,y,Lax,Lay)( -d+c*x  );
 dgxLa	=@(x,y,Lax,Lay)(0*Lax		    	           );
 dgyLa	=@(x,y,Lax,Lay)(-1/alpha)*ones(size(Lay));
 %dgxy	=@(x,y)( 0*x   );
@@ -187,14 +187,14 @@ df3y	=@(x,y,Lax,Lay) (0*y);
 df3Lax	=@(x,y,Lax,Lay) (0*Lax);
 df3Lay	=@(x,y,Lax,Lay) (0*Lay);
 
-f2	=@(x,y,Lax,Lay) (0*x);
+f2	=@(x,y,Lax,Lay) (c*y);
 df2x	=@(x,y,Lax,Lay) (0*x);
-df2y	=@(x,y,Lax,Lay) (0*y);
+df2y	=@(x,y,Lax,Lay) (c*ones(size(y)));
 df2Lax	=@(x,y,Lax,Lay) (0*Lax);
 df2Lay	=@(x,y,Lax,Lay) (0*Lay);
 
-f4	=@(x,y,Lax,Lay) (-c*ones(size(x)));
-df4x	=@(x,y,Lax,Lay) (0*x);
+f4	=@(x,y,Lax,Lay) (-d+c*x);
+df4x	=@(x,y,Lax,Lay) (c*ones(size(x)));
 df4y	=@(x,y,Lax,Lay) (0*y);
 df4Lax	=@(x,y,Lax,Lay) (0*Lax);
 df4Lay	=@(x,y,Lax,Lay) (0*Lay);
