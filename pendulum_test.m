@@ -1,24 +1,22 @@
-function err=nonlinearproblemLotkaEq(power)
+function [Sol,err]=pendulum_test(ratio,ll,ExactSol)
 size_marker=8;warning off;
 L		=8;
-x0		= 20;
+x0		= pi/4;
 xtarget 	= 0.0;
-y0		= 3;
-ytarget 	=1.0;
+y0		= pi/6;
+ytarget 	=0.0;
     %%%%%%%%%%%%%%%%%%%%%
-N		= 2^14;
-N0		=N*L;factorial(8)*3;.5*1e2;
-
+N0		=2e5;factorial(8)*3;.5*1e2;
+N		= N0/L;
 fprintf(2,'\t -- Computation of the solution  --\n')
 compt		= 0;
-load('solutionLotkaNonlinear.mat');
 alpha		= 0.01;
-T_court		=1;%1/3;
-T		= T_court;1;
+T_court		=1;
+T		= T_court;1/3;
 t		= linspace(0,T,N0+1);
 dt		= t(2)-t(1);
 %Fig		= 1;
-Newton		= 1;
+%Newton		= 1;
 
 
 Sol		= [linspace(x0,xtarget,L+1)' ; ...%x(1:N0/L:end)';...%
@@ -26,28 +24,21 @@ Sol		= [linspace(x0,xtarget,L+1)' ; ...%x(1:N0/L:end)';...%
 		   ones(L,1);...
 		   ones(L,1)];%zeros(4*L+2,1);
 
-Tol_Newt	= 1e-13;
+Tol_Newt	= 1e-12;
 Err_Newt	= 1 ;
 
 %initialisation
-%x_temp		= linspace(x0,xtarget,L*N+1);
-%y_temp		= linspace(y0,ytarget,L*N+1);
-%x_temp		=[x0,zeros(1,L*N-1),xtarget];
-%y_temp		=[y0,zeros(1,L*N-1),ytarget];
 x_temp		=[x0,ones(1,L*N-1),xtarget];
 y_temp		=[y0,ones(1,L*N-1),ytarget];
 tabXl		= reshape(x_temp(2:end),N,L);
 tabYl		= reshape(y_temp(2:end),N,L);
 tabLaXl		= zeros(N,L);ones(N,L);
 tabLaYl		= zeros(N,L);ones(N,L);
-
-ratio		= 2^(-power);%[log10(N)]);%Liste_ratio		= 10.^(-[0:log10(N)]);
-Napprox		= N*ratio;% M
-err=[];
+%ratio		= 10.^(-r);
+Napprox		= N*ratio;
 fprintf(2,'\t\t ============== \n Ratio=%e|L=1e%i|N0=1e%i|N=1e%i|Napprox=1e%i\n\t\t ==============\n\n',ratio,log10(L),log10(N0),log10(N),log10(Napprox))
 iter		= 0;
-%tic;
-%ticBytes(gcp);
+err=[];
 		while Err_Newt>Tol_Newt
 			iter			= iter + 1 ;
 			X			= Sol(1:L+1);
@@ -57,93 +48,90 @@ iter		= 0;
 			if L==1
 				Compute_grad=1;
 				[F,G,~,~,~,~,dFapprox,dGapprox]=pb_NL2(N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,...
-                                                         		 	        	 y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Newton,Compute_grad);
+                                                         		 	        	 y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Compute_grad,ll);
 			else
 				fprintf(2,'\t\t *********** Pbs Fins *********** \n ')
 				Compute_grad=0;
 				
 				[F,G,tabXl,tabLaXl,tabYl,tabLaYl]=pb_NL2(N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,...
-                                                        		 					 y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Newton,Compute_grad);
+                                                        		 					 y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Compute_grad,ll);
 				fprintf(2,'\t\t ***** Pbs Grossiers ***** \n ')
 				Compute_grad=1;
 				[~,~,~,~,~,~,dFapprox,dGapprox]=pb_NL2(Napprox,L,alpha,x0,xtarget,X,LaX,tabXl(1:N/Napprox:end,:),tabLaXl(1:N/Napprox:end,:),...
-                                                     	     			           y0,ytarget,Y,LaY,tabYl(1:N/Napprox:end,:),tabLaYl(1:N/Napprox:end,:),dt/ratio,Newton,Compute_grad);
-			%[~,~,~,~,~,~,dFapprox,dGapprox]=pb_NL2(Napprox,L,alpha,x0,xtarget,X,LaX,tabXl(1:r:end,:),tabLaXl(1:r:end,:),...
-                        %                             	     			           y0,ytarget,Y,LaY,tabYl(1:r:end,:),tabLaYl(1:r:end,:),dt/ratio,Newton,Compute_grad);
+                                                     	     			           y0,ytarget,Y,LaY,tabYl(1:N/Napprox:end,:),tabLaYl(1:N/Napprox:end,:),dt/ratio,Compute_grad,ll);
 			end%if
 			dSol			= -[dFapprox;dGapprox]\[F;G];
 			Sol			= Sol + dSol;
 			Err_Newt		= norm(dSol);
            tabx=tabXl;
             taby=tabYl;
-			cost			= (tabXl(end,end)-xtarget)^2+(tabYl(end,end)-ytarget)^2+1/alpha*sum(tabLaXl(:).^2+tabLaYl(:).^2)*dt;
+			cost= (tabXl(end,end)-xtarget)^2+(tabYl(end,end)-ytarget)^2+1/alpha*sum(tabLaXl(:).^2+tabLaYl(:).^2)*dt;
 					h = figure(81);
-				      	for l=1:L
-		  				plot(...%[x((l-1)/L*N0+1:l/L*N0)], [y((l-1)/L*N0+1:l/L*N0)], 'b--',...
-						     tabXl(:,l),tabYl(:,l),'k',x0,y0,'g.',xtarget,ytarget,'r.','Markersize',size_marker); ...
-		  				%plot(tabx(:,l),taby(:,l),'--k','LineWidth',1);
-                       hold on;
-	      			      	end;
+			for l=1:L
+                %plot(tabXl(:,l),tabYl(:,l),'b',x0,y0,'g.',xtarget,ytarget,'r.','Markersize',size_marker);
+                hold on;
+            end
+            
 	     			      	hold off;
-	     				xlabel('Prey','interpreter','latex');
-	     		   	ylabel('Predactor','interpreter','latex');
+	     				xlabel('Position','interpreter','latex');
+	     		   	ylabel('Speed','interpreter','latex');
 				%		drawnow
 			fprintf(2,'\t Ratio=%e|Iter=%i|Err_Newt=%e|J=%f\n',ratio,iter,Err_Newt,cost)
-           err(iter)=norm(Z-Sol);
-          % err(iter)=norm(Sol-z,2);
-          % it=iter;
+           %err(iter)=norm(SoL-Sol);
+           if length(ExactSol)>1
+                err(iter)=norm(Sol-ExactSol,2);
+                it=iter;
+           end
           %Cost(iter)=cost;
-   %   z=Sol;
+      %z=Sol;
 		end%while
-%end_time=cputime-start_time
-%pr
-%int('The computing time is \t', end_time);
-%tocBytes(gcp);
-%toc
-%save('solutionLotkaNonlinear.mat','Sol');
+
 end%function
 
 %----------------------------- --------------------------------------------------------------
-function      [F,G,tabXl,tabLaXl,tabYl,tabLaYl,dF,dG]=pb_NL2(N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Newton,Compute_grad)
-%disp(N);
-%disp(L);
-%disp(dt);
-a =2; b = 1; c = 3;
-f	=@(x,y,Lax,Lay)  x.*(a-b*y)-Lax/alpha ; ...
-dfx	=@(x,y,Lax,Lay)( a-b*y);%
-dfy	=@(x,y,Lax,Lay)(-b*x );%
-dfxLa	=@(x,y,Lax,Lay) (-1/alpha)*ones(size(Lax));
-dfyLa  =@(x,y,Lax,Lay) (0*Lay);
+function      [F,G,tabXl,tabLaXl,tabYl,tabLaYl,dF,dG]=pb_NL2(N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,...
+                              		 					  y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Compute_grad,ll)
+gg=9.81;
+omega=gg/ll;
+
+f	=@(x,y,Lax,Lay) ( y ); ...
+dfx	=@(x,y,Lax,Lay)( 0*x);%
+dfy	=@(x,y,Lax,Lay)(ones(size(y)) );%
+%dfxx	=@(x,y)( 0*x           		   );%
+%dfyy	=@(x,y)( 0*y                              );%
+%dfxy	=@(x,y)( 	     0*x);%
+dfxLa	=@(x,y,Lax,Lay) (0*y);
+dfyLa  =@(x,y,Lax,Lay) (0*y);
 %%%%%%%%
 
-g	=@(x,y,Lax,Lay)( -c*y)-Lay/alpha;
-dgx	=@(x,y,Lax,Lay)( 0*x);
-dgy	=@(x,y,Lax,Lay)( -c*ones(size(y))  );
+g	=@(x,y,Lax,Lay)( omega*sin(x)-Lay.*(cos(x).^2)/alpha);
+dgx	=@(x,y,Lax,Lay)(  omega*cos(x)+Lay.*sin(2*x)/alpha);
+dgy	=@(x,y,Lax,Lay)( 0*x  );
 dgxLa	=@(x,y,Lax,Lay)(0*Lax		    	           );
-dgyLa	=@(x,y,Lax,Lay)(-1/alpha)*ones(size(Lay));
+dgyLa	=@(x,y,Lax,Lay)(-(cos(x).^2)/alpha);
 %dgxy	=@(x,y)( 0*x   );
 %%%%
 %%%%%%%%%%%%
-f1	=@(x,y,Lax,Lay) (a-b*y);
+f1	=@(x,y,Lax,Lay) (0*x);
 %f3	=@(x,y,Lax,Lay)(0*y);
 df1x	=@(x,y,Lax,Lay) (0*x);
-df1y	=@(x,y,Lax,Lay) (-b*ones(size(y)));
+df1y	=@(x,y,Lax,Lay) (0*y);
 df1Lax	=@(x,y,Lax,Lay) (0*Lax);
 df1Lay	=@(x,y,Lax,Lay) (0*Lay);
 
-f3	=@(x,y,Lax,Lay) (-b*x);
-df3x	=@(x,y,Lax,Lay) (-b*ones(size(x)));
+f3	=@(x,y,Lax,Lay) (omega*cos(x)+Lay.*sin(2*x)/(2*alpha));
+df3x	=@(x,y,Lax,Lay) (-omega*sin(x)+Lay.*cos(2*x)/alpha);
 df3y	=@(x,y,Lax,Lay) (0*y);
 df3Lax	=@(x,y,Lax,Lay) (0*Lax);
-df3Lay	=@(x,y,Lax,Lay) (0*Lay);
+df3Lay	=@(x,y,Lax,Lay) (sin(2*x)/(2*alpha));
 
-f2	=@(x,y,Lax,Lay) (0*x);
+f2	=@(x,y,Lax,Lay) (ones(size(x)));
 df2x	=@(x,y,Lax,Lay) (0*x);
 df2y	=@(x,y,Lax,Lay) (0*y);
 df2Lax	=@(x,y,Lax,Lay) (0*Lax);
 df2Lay	=@(x,y,Lax,Lay) (0*Lay);
 
-f4	=@(x,y,Lax,Lay) (-c*ones(size(x)));
+f4	=@(x,y,Lax,Lay) (0*x);
 df4x	=@(x,y,Lax,Lay) (0*x);
 df4y	=@(x,y,Lax,Lay) (0*y);
 df4Lax	=@(x,y,Lax,Lay) (0*Lax);
@@ -163,8 +151,8 @@ compt_par_FG2	=zeros(L,1);
 compt_par_dFG2l	=zeros(L,1);
 compt_par_dFG2c	=zeros(L,4);
 
-
 %parfor l=1:L %l=number of the sub-interval, starting form l=1. Y, La = vectors of initial conditions for Yl and Lal. La(:,1) not used.
+
 for l=1:L%
 %for l=1:L
 	%Actual unknowns on the subinterval:
@@ -179,39 +167,25 @@ for l=1:L%
 		%PXl	= Xl    - [X(l);Xl(1:end-1,1)]  - dt * (f(Xl,Yl)-1/alpha*[LaXl(2:end,1);LaX(l)]);
 		%PYl	= Yl    - [Y(l );Yl(1:end-1,1)]  - dt * (g(Xl,Yl)-1/alpha*[LaYl(2:end,1);LaY(l)]);
 
-		PXl	= Xl- [X(l);Xl(1:end-1,1)]  - dt*f(Xl,Yl,[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]);
-		PYl	= Yl- [Y(l);Yl(1:end-1,1)]  - dt*g(Xl,Yl,[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]);
+		PXl	= Xl- [X(l);Xl(1:end-1,1)]  - dt*f([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]);
+		PYl	= Yl- [Y(l);Yl(1:end-1,1)]  - dt*g([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]);
 
-		%dPXlX	=   speye(N) -   spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags(dfx(Xl,Yl),0,N,N) ;
-		%dPXlY	= 0*speye(N) - 0*spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags(dfy(Xl,Yl),0,N,N) ;
-		%dPYlX	= 0*speye(N) - 0*spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags(dgx(Xl,Yl),0,N,N) ;
-		%dPYlY	=   speye(N) -   spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags(dgy(Xl,Yl),0,N,N) ;
 
-		dPXlX	=   speye(N) -   spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags(dfx(Xl,Yl,[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]),0,N,N) ;
-		dPXlY	= 0*speye(N) - 0*spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags(dfy(Xl,Yl,[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]),0,N,N) ;
-		dPYlX	= 0*speye(N) - 0*spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags(dgx(Xl,Yl,[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]),0,N,N) ;
-		dPYlY	=   speye(N) -   spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags(dgy(Xl,Yl,[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]),0,N,N) ;
 
-		%dPXlLaX	=   dt * 1/alpha * spdiags([1;ones(N-1,1)],1,N,N) ;
-		%dPXlLaY	= 0*dt * 1/alpha * spdiags([1;ones(N-1,1)],1,N,N) ;
-		%dPYlLaX	= 0*dt * 1/alpha * spdiags([1;ones(N-1,1)],1,N,N) ;
-		%dPYlLaY	=   dt * 1/alpha * spdiags([1;ones(N-1,1)],1,N,N) ;
-		DfxLa=dfxLa(Xl,Yl,[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]);
-		DfyLa=dfyLa(Xl,Yl,[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]);
-		DgxLa=dgxLa(Xl,Yl,[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]);
-		DgyLa=dgyLa(Xl,Yl,[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]);
-		dPXlLaX	=   0*speye(N) -   0*spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags([0;DfxLa(2:end)],0,N,N) ;
-		dPXlLaY	= 0*speye(N) - 0*spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags([0;DfyLa(2:end)],0,N,N) ;
-		dPYlLaX	= 0*speye(N) - 0*spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags([0;DgxLa(2:end)],0,N,N) ;
-		dPYlLaY	=   0*speye(N) -   0*spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags([0;DgyLa(2:end)],0,N,N) ;
+		dPXlX	=   speye(N) -   spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags(dfx([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]),-1,N,N) ;
+		dPXlY	= 0*speye(N) - 0*spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags(dfy([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]),-1,N,N) ;
+		dPYlX	= 0*speye(N) - 0*spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags(dgx([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]),-1,N,N) ;
+		dPYlY	=   speye(N) -   spdiags([ones(N-1,1);1],-1,N,N) - dt * spdiags(dgy([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]),-1,N,N) ;
 
-		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-		%QXl	= [LaXl(2:end,1);LaX(l)] - LaXl    + dt * dfx([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]).*LaXl...
-		%					   + dt * dgx([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]).*LaYl;
-		%
-		%QYl	= [LaYl(2:end,1);LaY(l)] - LaYl    + dt * dgy([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]).*LaYl...
-		%					   + dt * dfy([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]).*LaXl;
+	
+		DfxLa=dfxLa([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]);
+		DfyLa=dfyLa([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]);
+		DgxLa=dgxLa([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]);
+		DgyLa=dgyLa([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],[LaXl(2:end,1);LaX(l)],[LaYl(2:end,1);LaY(l)]);
+		dPXlLaX	=   0*speye(N) -   0*spdiags([ones(N-1,1);1],1,N,N) - dt * spdiags([0;DfxLa(2:end)],0,N,N) ;
+		dPXlLaY	= 0*speye(N) - 0*spdiags([ones(N-1,1);1],1,N,N) - dt * spdiags([0;DfyLa(2:end)],0,N,N) ;
+		dPYlLaX	= 0*speye(N) - 0*spdiags([ones(N-1,1);1],1,N,N) - dt * spdiags([0;DgxLa(2:end)],0,N,N) ;
+		dPYlLaY	=   0*speye(N) -   0*spdiags([ones(N-1,1);1],1,N,N) - dt * spdiags([0;DgyLa(2:end)],0,N,N) ;
 
 
 		QXl	= [LaXl(2:end,1);LaX(l)] - LaXl    + dt * f1([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],LaXl,LaYl).*LaXl...
@@ -219,14 +193,6 @@ for l=1:L%
 		QYl	= [LaYl(2:end,1);LaY(l)] - LaYl    + dt * f4([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],LaXl,LaYl).*LaYl...
 							   + dt * f2([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],LaXl,LaYl).*LaXl;
 
-		%dQXlX	=  dt*spdiags(dfxx([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]),-1,N,N)*spdiags([LaXl(2:end,1); LaX(l) ],0,N,N)...
-		%	  +dt*spdiags(dgxx([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]),-1,N,N)*spdiags([LaYl(2:end,1); LaY(l) ],0,N,N);
-		%dQXlY	=  dt*spdiags(dfxy([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]),-1,N,N)*spdiags([LaXl(2:end,1); LaX(l) ],0,N,N)...
-		%	  +dt*spdiags(dgxy([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]),-1,N,N)*spdiags([LaYl(2:end,1); LaY(l) ],0,N,N);
-		%dQYlX	=  dt*spdiags(dgxy([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]),-1,N,N)*spdiags([LaYl(2:end,1); LaY(l) ],0,N,N)...
-		%	  +dt*spdiags(dfxy([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]),-1,N,N)*spdiags([LaXl(2:end,1); LaX(l) ],0,N,N);
-		%dQYlY	=  dt*spdiags(dgyy([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]),-1,N,N)*spdiags([LaYl(2:end,1); LaY(l) ],0,N,N)...
-		%	  +dt*spdiags(dfyy([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]),-1,N,N)*spdiags([LaXl(2:end,1); LaX(l) ],0,N,N);
 
 
 		dQXlX	=  dt*spdiags(df1x([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],LaXl,LaYl),-1,N,N)*spdiags([LaXl(2:end,1); LaX(l) ],0,N,N)...
@@ -240,10 +206,6 @@ for l=1:L%
 			  +dt*spdiags(df2y([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],LaXl,LaYl),-1,N,N)*spdiags([LaXl(2:end,1); LaX(l) ],0,N,N);
 
 
-		%dQXlLaX	=    spdiags([1;ones(N-1,1)],1,N,N) - speye(N) + spdiags(dt*dfx([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]),0,N,N);
-		%dQXlLaY	=    						 spdiags(dt*dgx([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]),0,N,N);
-		%dQYlLaX	=   						 spdiags(dt*dfy([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]),0,N,N);
-		%dQYlLaY	=    spdiags([1;ones(N-1,1)],1,N,N) - speye(N) + spdiags(dt*dgy([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)]),0,N,N);
 
 		dQXlLaX	= spdiags([1;ones(N-1,1)],1,N,N) - speye(N)...
 		           		 + dt*spdiags(df1Lax([X(l);Xl(1:end-1,1)],[Y(l);Yl(1:end-1,1)],LaXl,LaYl),0,N,N)*spdiags([LaXl(2:end,1); LaX(l) ],0,N,N)...
@@ -274,7 +236,7 @@ for l=1:L%
 		LaXl 	=  dS(2*N+1:3*N   , 1) + LaXl;
 		LaYl 	=  dS(3*N+1:4*N   , 1) + LaYl;%%%%%!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		Err_Newt= norm(dS);
-		%	fprintf(2,'\t\t\t Sub-Newton proc. l=%i|sub-iter=%i|Err_Newt=%e|dt=%f|N.L.dt=%f\n',l,scomp,Err_Newt,dt,N*L*dt);
+			fprintf(2,'\t\t\t Sub-Newton proc. l=%i|sub-iter=%i|Err_Newt=%e|dt=%f|N.L.dt=%f\n',l,scomp,Err_Newt,dt,N*L*dt);
 			scomp    = 1+scomp;
 	end
 	tabXl  (:,l) 	= Xl;
@@ -295,18 +257,6 @@ for l=1:L%
 
 %fprintf(2,'\t\t Fin Assemblage F, l=%i, Calcul inverse fonc. impl.\n',l)
 if Compute_grad
-%	Z	 = -([dPXlX , dPXlY , dPXlLaX, dPXlLaY ;...
- %  		      dPYlX , dPYlY , dPYlLaX, dPYlLaY ;...
-%		      dQXlX , dQXlY , dQXlLaX, dQXlLaY ;...
-%		      dQYlX , dQYlY , dQYlLaX, dQYlLaY ])...
-%				\...
-%			[ [-1;zeros(N-1,1)] ,    zeros(N  ,1)   ,  dt/alpha*[zeros(N-1,1);1],  %zeros(N,1)               ;...
-%			      zeros(N  ,1)  ,[-1;zeros(N-1,1)]  ,            zeros(N  ,1)   ,  dt/alpha*[zeros(N-1,1);1];...
-%dt*[dfxx(X(l),Y(l))*LaXl(1);zeros(N-1,1)]+dt*[dgxx(X(l),Y(l))*LaYl(1);zeros(N-1,1)],...
-%dt*[dfxy(X(l),Y(l))*LaXl(1);zeros(N-1,1)]+dt*[dgxy(X(l),Y(l))*LaYl(1);zeros(N-1,1)],       [zeros(N-1,1);1] ,   zeros(N  ,1);...
-%dt*[dgxy(X(l),Y(l))*LaYl(1);zeros(N-1,1)]+dt*[dfxy(X(l),Y(l))*LaXl(1);zeros(N-1,1)],...
-%dt*[dgyy(X(l),Y(l))*LaYl(1);zeros(N-1,1)]+dt*[dfyy(X(l),Y(l))*LaXl(1);zeros(N-1,1)],        zeros(N  ,1)    ,  [zeros(N-1,1);1];...
-%];
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Z	 = -([dPXlX , dPXlY , dPXlLaX, dPXlLaY ;...
@@ -314,8 +264,8 @@ Z	 = -([dPXlX , dPXlY , dPXlLaX, dPXlLaY ;...
 	      dQXlX , dQXlY , dQXlLaX, dQXlLaY ;...
 	      dQYlX , dQYlY , dQYlLaX, dQYlLaY ])...
 				\...
-			[ [-1;zeros(N-1,1)] ,    zeros(N  ,1)   ,  dt*[zeros(N-1,1);dfxLa(X(l),Y(l),LaXl(l),LaYl(l))],  zeros(N,1)               ;...
-			      zeros(N  ,1)  ,[-1;zeros(N-1,1)]  ,            zeros(N  ,1)   ,  dt*[zeros(N-1,1);dgyLa(X(l),Y(l),LaXl(l),LaYl(l))];...
+			[ [-1;zeros(N-1,1)]+dt*[dfx(X(l),Y(l),LaXl(l),LaYl(l));zeros(N-1,1)] ,    zeros(N  ,1)+dt*[dfy(X(l),Y(l),LaXl(l),LaYl(l));zeros(N-1,1)]  ,  dt*[zeros(N-1,1);dfxLa(X(l),Y(l),LaXl(l),LaYl(l))],  dt*[zeros(N-1,1);dfyLa(X(l),Y(l),LaXl(l),LaYl(l))]              ;...
+			      zeros(N  ,1)+dt*[dgx(X(l),Y(l),LaXl(l),LaYl(l));zeros(N-1,1)]  ,[-1;zeros(N-1,1)]+dt*[dgy(X(l),Y(l),LaXl(l),LaYl(l));zeros(N-1,1)] ,           dt*[zeros(N-1,1);dgxLa(X(l),Y(l),LaXl(l),LaYl(l))]   , dt*[zeros(N-1,1);dgyLa(X(l),Y(l),LaXl(l),LaYl(l))] ;...
 dt*[df1x(X(l),Y(l),LaXl(l),LaYl(l))*LaXl(l);zeros(N-1,1)]+dt*[df3x(X(l),Y(l),LaXl(l),LaYl(l))*LaYl(l);zeros(N-1,1)],...
 dt*[df1y(X(l),Y(l),LaXl(l),LaYl(l))*LaXl(l);zeros(N-1,1)]+dt*[df3y(X(l),Y(l),LaXl(l),LaYl(l))*LaYl(l);zeros(N-1,1)],       [zeros(N-1,1);1] ,   zeros(N  ,1);...
 dt*[df4x(X(l),Y(l),LaXl(l),LaYl(l))*LaYl(l);zeros(N-1,1)]+dt*[df2x(X(l),Y(l),LaXl(l),LaYl(l))*LaXl(l);zeros(N-1,1)],...
@@ -329,17 +279,7 @@ dt*[df4y(X(l),Y(l),LaXl(l),LaYl(l))*LaYl(l);zeros(N-1,1)]+dt*[df2y(X(l),Y(l),LaX
         dydX   = Z(2*N  ,1); dydY   = Z(2*N  ,2); dydLaX   = Z(2*N  ,3); dydLaY   = Z(2*N  ,4);
         dlaxdX = Z(2*N+1,1); dlaxdY = Z(2*N+1,2); dlaxdLaX = Z(2*N+1,3); dlaxdLaY = Z(2*N+1,4);
         dlaydX = Z(3*N+1,1); dlaydY = Z(3*N+1,2); dlaydLaX = Z(3*N+1,3); dlaydLaY = Z(3*N+1,4);
-%ZZ(16*(l-1)+1:16*l)=[dxdX  ;dydX  ;dlaxdX  ;dlaydX;...
-%		     dxdY  ;dydY  ;dlaxdY  ;dlaydY;...
-%		     dxdLaX;dydLaX;dlaxdLaX;dlaydLaX;...
-%		     dxdLaY;dydLaY;dlaxdLaY;dlaydLaY;];
-
-%fprintf(2,'\t\t Assemblage dF, l=%i\n',l)
-%(dX(l+1)- (A*  dxdX*dX(l) + B*  dxdY*dY(l) + C*  dxdLaX*dLaX(l) + D*  dxdLaY*dLaY(l))
-	%dF(l+1 ,       l)	= -dxdX  ;
-	%dF(l+1 ,   L+1+l)	= -dxdY  ;%verifier la taille de Y et La !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	%dF(l+1 , 2*L+2+l)	= -dxdLaX;%verifier la taille de Y et La !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	%dF(l+1 , 3*L+2+l)	= -dxdLaY;%verifier la taille de Y et La !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	dF_par1(l,:)=[-dxdX -dxdY -dxdLaX -dxdLaY];
 	compt_par_dFG1l(l,:)=l+1;
 	compt_par_dFG1c(l,:)=[l L+1+l 2*L+2+l 3*L+2+l];

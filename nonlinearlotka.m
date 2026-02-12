@@ -1,54 +1,84 @@
-function nonlinearlotka(T,a,b,c,d,alpha,L,limit,ratio,yin,ytg,fignonlinear)
-line=1.6; Fontsize=14;
-marker=4;
-colors=[1,0,0;0,0,1;0,0.6667,0];
-labelsize=12;
-DT=T/L;
-dt=DT/2^limit;
-Dt=dt./abs(ratio);
-convFactor=[];
+function nonlinearlotka(T,a,b,c,d,alpha,L,limit,ratio,yin,ytg,tol_sol,fignonlinear)
+    % --- Visualization Settings ---
+    line = 1.5;         % Plot line width
+    Fontsize = 20;      % Axis and label font size
+    marker = 5;         % Data point marker size
+    labelsize = 20;     % Global tick label size
+    % Define color matrix for distinct plot series
+    colors = [1,0,0; 0,0,1; 0,0.6667,0]; 
 
-iter=0;
-Z=[];
-fprintf(2,'\t\t ============== \n Computation of reference solution !\n');
-[Z,~]=nonlinearproblemLotkaEq(T,a,b,c,d,alpha,L,limit,1,yin,ytg,Z);
-for r=ratio
-	iter=iter+1;
-	fprintf(2,'\t\t ============== \n Computation of solution for Ratio=%e\n',r);	
-	[~,convFactor(iter)]=nonlinearproblemLotkaEq(T,a,b,c,d,alpha,L,limit,r,yin,ytg,Z);
+    % --- Time Discretization Setup ---
+    DT = T/L;           % Coarse time step
+    dt = DT/2^limit;    % Fine time step (reference)
+    Dt = dt./abs(ratio); % Step size adapted to the ratio r = delta_t / Delta_t
+    
+    convFactor = [];    % To store the empirical convergence factor (rho)
+    iter = 0;           % Iteration counter for the ratio loop
+    Z = [];             % Storage for the reference solution
+    
+    % --- Step 1: Reference Solution ---
+    % Compute the ground truth solution using the highest resolution (ratio = 1)
+    fprintf(2,'\t\t ============== \n Computation of reference solution !\n');
+    [Z,~,~] = nonlinearproblemLotkaEq(T,a,b,c,d,alpha,L,limit,1,yin,ytg,Z,tol_sol);
+    
+    Err = cell(1,length(ratio)); % Pre-allocate cell array for error trajectories
+
+    % --- Step 2: Sensitivity Analysis ---
+    % Loop through different discretization ratios to observe solver behavior
+    for r = ratio
+        iter = iter + 1;
+        fprintf(2,'\t\t ============== \n Computation of solution for Ratio=%e\n', r);	
+        
+        % Solve the non-linear system for the current ratio
+        [~, convFactor(iter), err] = nonlinearproblemLotkaEq(T,a,b,c,d,alpha,L,limit,r,yin,ytg,Z,tol_sol);
+        Err{iter} = err; % Store the error history for each ratio
+    end
+
+    % --- Step 3: Theoretical Bound Comparison ---
+    % Implement the analytical estimate (Eq. 38) derived from the stability analysis
+    EstimateBound = max(a*Dt.*(0.5+(0.5*a*Dt+1)*exp(2*a*DT)), 2.32*d*Dt); 
+
+    % --- Step 4: Convergence Plot (Log-Log) ---
+    figure(fignonlinear)
+    
+    % Plot the Theoretical Estimate Bound
+    loglog(ratio, EstimateBound, ...
+        'Color', colors(1,:), 'LineStyle', '-', 'LineWidth', line, ...
+        'Marker', 'd', 'MarkerSize', marker, 'DisplayName', 'Estimate $(38)$');
+    hold on
+    
+    % Plot the Empirical Convergence Factor (rho_hat)
+    loglog(ratio, convFactor, ...
+        'Color', colors(3,:), 'LineStyle', '--', 'LineWidth', line, ...
+        'Marker', 's', 'MarkerSize', marker, 'DisplayName', '$\hat\rho$');
+    
+    % Graphical Formatting
+    xlabel('$r=\frac{\delta t}{\Delta t}$','interpreter','latex','FontSize',Fontsize);
+    ylabel('$\hat\rho$','interpreter','latex','FontSize',Fontsize);
+    legend('interpreter','latex','FontWeight','bold','Location','northwest','FontSize',Fontsize);
+    xticks(flip(ratio)); % Align ticks with the provided ratio values
+    set(gca,'FontSize',labelsize);
+    grid on
+    hold off
+
+    % --- Step 5: Residual/Error Trajectory Plot ---
+    % Visualize the decay of error across solver iterations for each ratio
+    figure(33)
+    for k = 1:length(ratio)
+        err = Err{k};
+        semilogy(1:length(err), err, "o-", 'DisplayName', sprintf('$r = %.2e$', ratio(k)));
+        legend();
+        hold on
+    end
+    xlabel('Iteration');
+    ylabel('Error');
+    title('Error Decay per Iteration');
+    grid on
+    hold off
+   close(33);
+   close(255);
 end
-%save('nonlinearLotka.mat','conFactor','Z');
-%load('nonlinearLotka.mat')
-EstimateBound=max(a*Dt.*(0.5+(0.5*a*Dt+1)*exp(2*a*DT)), 2.32*d*Dt); 
-figure(fignonlinear)
-   loglog(Dt,EstimateBound, ...
-    'Color', [colors(1,:)], ...      
-    'LineStyle', '-', ...           
-    'LineWidth', line, ...             
-    'Marker', 'd', ...              
-    'MarkerSize', marker,...
-    'DisplayName','Upper Bound'...
-    );
-	hold on
-
-	loglog(Dt,convFactor, ...
-    'Color', [colors(3,:)], ...      
-    'LineStyle', '--', ...           
-    'LineWidth', line, ...             
-    'Marker', 's', ...              
-    'MarkerSize', marker,...
-    'DisplayName','$\hat\rho$'...
-    );
-
-	 xlabel('$\Delta t$','interpreter','latex','FontSize',Fontsize);
-     ylabel('$\hat\rho$','interpreter','latex','FontSize',Fontsize);
-     legend('interpreter','latex','FontWeight','bold','Location','northwest','FontSize',12);
-     set(gca,'FontSize',labelsize);
-     grid on
-     hold off
-end
-
-function [Sol,rho]=nonlinearproblemLotkaEq(T,a,b,c,d,alpha,L,limit,ratio,yin,ytg,Z)
+function [Sol,rho,err]=nonlinearproblemLotkaEq(T,a,b,c,d,alpha,L,limit,ratio,yin,ytg,Z,tol_sol)
 size_marker=8;warning off;
 x0		= yin(1);
 xtarget 	=ytg(1);
@@ -131,7 +161,15 @@ iter		= 0;
 				%		drawnow
 			fprintf(2,'\t |Iter=%i|Err_Newt=%e|\n',iter,Err_Newt)
            if length(Z)~=0
-			err(iter)=norm(Z-Sol);
+               error=norm(Z-Sol);
+               if iter==1
+                    err(iter)=error;
+               else 
+                   if error>tol_sol
+                       err(iter)=error;
+                   end
+               end
+
 		   end
 		end%while
 		h = figure(255);
@@ -141,17 +179,18 @@ iter		= 0;
 						     tabXl(:,l),tabYl(:,l),'k',x0,y0,'g.',xtarget,ytarget,'r.','Markersize',size_marker); ...
 		  				%plot(tabx(:,l),taby(:,l),'--k','LineWidth',1);
                        hold on;
-	      			      	end;
+            end
 	     			      	hold off;
 	     				xlabel('Prey','interpreter','latex');
 	     		   	ylabel('Predactor','interpreter','latex');
 				%		drawnow
 		if length(Z)~=0
 		rho=convergenceFactor(err);
+
 		end
 end%function
 function rho=convergenceFactor(error)
-	rho=error(end-2)/error(end-3);
+	rho=error(end)/error(end-1);
 end
 %----------------------------- --------------------------------------------------------------
 function      [F,G,tabXl,tabLaXl,tabYl,tabLaYl,dF,dG]=pb_NL2(a,b,c,d,N,L,alpha,x0,xtarget,X,LaX,tabXl,tabLaXl,y0,ytarget,Y,LaY,tabYl,tabLaYl,dt,Newton,Compute_grad)

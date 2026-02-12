@@ -1,39 +1,46 @@
-function numerical_test1()
+function fig_section_4_1()
 % Simulates an optimal control problem where alpha is the regularization parameter.
 % Performs several convergence tests (Test1–Test5) based on time discretization.
-
+line=1.5;Fontsize=18;
 alpha_reg = 1.0;      % Regularization parameter α
-sigma_val = 1.0; 8.0;      % System parameter σ
+sigma_val = 9.0; 1.0;      % System parameter σ
 T_final = 1.0;        % Final simulation time
-numSteps = 10;        % Number of coarse time intervals
+numSteps = 10;        % (L) Number of coarse time intervals
 DT = T_final / numSteps;  % Coarse time step
 
 %%%%%%%%%%%%% Test 1 %%%%%%%%%%%
 % Convergence with varying fine grid refinement
 Dt_coarse = DT / 4;                    % Coarse substep
 dt_fine = Dt_coarse ./ (2.^(1:20));    % Sequence of fine time steps
-%run_test1(alpha_reg, sigma_val, T_final, numSteps, Dt_coarse, dt_fine);
+run_test1(alpha_reg, sigma_val, T_final, numSteps, Dt_coarse, dt_fine,line,Fontsize);
 clear dt_fine Dt_coarse
 
 %%%%%%%%%%%%% Test 2 %%%%%%%%%%%
 % Convergence with varying coarse grid refinement
 Dt_coarse = DT ./ 2.^(1:19);
 dt_fine = Dt_coarse(1) * 2^(-20);
-%run_test2(alpha_reg, sigma_val, T_final, numSteps, Dt_coarse, dt_fine);
+run_test2(alpha_reg, sigma_val, T_final, numSteps, Dt_coarse, dt_fine,line,Fontsize);
 
 %%%%%%%%%%%%% Test 4 %%%%%%%%%%%
-alpha_range = [linspace(1e-3,1e-2,10), linspace(2e-2,2e-1,5), ...
-               linspace(3e-1,3e0,5), linspace(4e0,4e1,5), ...
-               linspace(5e1,5e2,5), linspace(6e2,5e3,5)];
+% Convergence with varying regularization alpha refinement
+alpha_range = logspace(-3, 4, 30);  % Define a range of alpha values for testing
+Dt_coarse = DT / 2;                  % Set coarse time step for this test
+dt_fine = DT / 2^4;                  % Set fine time step for this test
+run_test4(alpha_range, sigma_val, T_final, numSteps, Dt_coarse, dt_fine, line, Fontsize);
+
+%%%%%%%%%%%%% Test 5 %%%%%%%%%%%
+% Convergence with varying sigma refinement
+% This test is to show the gap between the estimate (34) and (35).
+sigma_val=[linspace(1e-2,1e-1,5),linspace(1e-1,1e0,5),linspace(1e0,1e1,5),linspace(1e1,1e2,5)];
 Dt_coarse = DT / 2;
 dt_fine = DT / 2^4;
-run_test4(alpha_range, sigma_val, T_final, numSteps, Dt_coarse, dt_fine);
+run_test5(alpha_reg, sigma_val, T_final, numSteps, Dt_coarse, dt_fine,line,Fontsize);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Test 1: Convergence with decreasing fine step dt (fixed Dt)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function run_test1(alpha_reg, sigma_val, T_final, numSteps, Dt_coarse, dt_fine)
+function run_test1(alpha_reg, sigma_val, T_final, numSteps, Dt_coarse, dt_fine,line,Fontsize)
 num_dt = length(dt_fine);
 Tau = zeros(num_dt,1);
 Results = zeros(3,num_dt);
@@ -51,22 +58,23 @@ fprintf('\nTau is in =[%.2f,%.2f]| Beta in [%.2f,%.2f]| alpha*L0 in [%.2f,%.2f]\
 
 % Log-log plot of spectral radius and estimates
 figure(111)
-loglog(dt_fine, Results(1,:), '--ob', 'LineWidth', 1.5);
+loglog(dt_fine, Results(1,:), '--ob', 'LineWidth', line);
 hold on
-%loglog(dt_fine, Results(2,:), '-sg', 'LineWidth', 2);
-loglog(dt_fine, Results(3,:), '-dr', 'LineWidth', 1.5);
+loglog(dt_fine, Results(2,:), '-sg', 'LineWidth', line);
+loglog(dt_fine, Results(3,:), '-dr', 'LineWidth', line);
 grid on
-xlabel('$\delta t$', 'Interpreter', 'latex', 'FontSize', 15);
-ylabel('$\rho$', 'Interpreter', 'latex','FontSize', 15);
-legend('$\rho$', 'Estimate $(34)$', 'Interpreter', 'latex','FontSize', 15);
-set(gca,'FontSize',14.5);
+xlabel('$\delta t$', 'Interpreter', 'latex', 'FontSize', Fontsize);
+ylabel('$\rho$', 'Interpreter', 'latex','FontSize', Fontsize);
+legend('$\rho$','Estimate $(35)$', 'Estimate $(34)$', 'Interpreter', 'latex','FontSize', Fontsize);
+set(gca,'FontSize',Fontsize);
+%ylim([5e-3,1e-1]);
 hold off
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Test 2: Convergence with decreasing coarse step Dt (fixed dt)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function run_test2(alpha_reg, sigma_val, T_final, numSteps, Dt_coarse, dt_fine)
+function run_test2(alpha_reg, sigma_val, T_final, numSteps, Dt_coarse, dt_fine,line,Fontsize)
 num_Dt = length(Dt_coarse);
 Tau = zeros(num_Dt,1);
 Results = zeros(3,num_Dt);
@@ -84,14 +92,16 @@ fprintf('\nTau is in =[%.2f,%.2f]| Beta in [%.2f,%.2f]| alpha*L0 in [%.2f,%.2f]\
 
 % Plot spectral radius vs Dt
 figure(222)
-loglog(Dt_coarse, Results(1,:), '--ob', 'LineWidth', 1.5);
+loglog(Dt_coarse, Results(1,:), '--ob', 'LineWidth', line);
 hold on
-loglog(Dt_coarse, Results(3,:), '-dr', 'LineWidth', 1.5);
+
+loglog(Dt_coarse, Results(2,:), '-sg', 'LineWidth', line);
+loglog(Dt_coarse, Results(3,:), '-dr', 'LineWidth', line);
 grid on
-xlabel('$\Delta t$', 'Interpreter', 'latex', 'FontSize', 15);
-ylabel('$\rho$', 'Interpreter', 'latex','FontSize', 15);
-legend('$\rho$', 'Estimate $(34)$', 'Interpreter', 'latex','FontSize', 15);
-set(gca,'FontSize',14.5);
+xlabel('$\Delta t$', 'Interpreter', 'latex', 'FontSize', Fontsize);
+ylabel('$\rho$', 'Interpreter', 'latex','FontSize', Fontsize);
+legend('$\rho$','Estimate $(35)$', 'Estimate $(34)$', 'Interpreter', 'latex','FontSize', Fontsize);
+set(gca,'FontSize',Fontsize);
 hold off
 end
 
@@ -137,7 +147,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Test 4: Convergence vs regularization parameter alpha
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function run_test4(alpha_range, sigma_val, T_final, numSteps, Dt_coarse, dt_fine)
+function run_test4(alpha_range, sigma_val, T_final, numSteps, Dt_coarse, dt_fine,line,Fontsize)
 Tau_val = computeTau(T_final/numSteps, Dt_coarse, dt_fine, sigma_val);
 L0_val = computeL0(T_final, numSteps, Dt_coarse, dt_fine, sigma_val);
 L0_alpha = alpha_range .* L0_val;
@@ -151,36 +161,38 @@ fprintf('\n Tau =%.2f| Beta =%.2f| alpha*L0 in [%.2f,%.2f]\n\n', Tau_val, Beta_v
 
 % Plot results
 figure(444)
-loglog(alpha_range, Results(1,:), '--ob', 'MarkerSize', 4, 'LineWidth', 1.5);
+loglog(alpha_range, Results(1,:), '--ob', 'LineWidth', line);
 hold on
-plot(alpha_range, Results(3,:), '-dr', 'MarkerSize', 4, 'LineWidth', 1.5);
+plot(alpha_range, Results(3,:), '-dr',  'LineWidth', line);
 grid on; grid minor
-xlabel('$\alpha$', 'Interpreter', 'latex', 'FontSize', 15);
-ylabel('$\rho$', 'Interpreter', 'latex', 'FontSize', 15);
-legend('$\rho$', 'Estimate $(34)$', 'Interpreter', 'latex','FontSize', 15);
-set(gca,'FontSize',14.5);
+xlabel('$\alpha$', 'Interpreter', 'latex', 'FontSize', Fontsize);
+ylabel('$\rho$', 'Interpreter', 'latex', 'FontSize', Fontsize);
+legend('$\rho$', 'Estimate $(34)$', 'Interpreter', 'latex','FontSize', Fontsize);
+set(gca,'FontSize',Fontsize);
 hold off
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Test 5: Convergence vs number of coarse steps L
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function run_test5(alpha_reg, sigma_val, T_final, L_vec, Dt_vec, dt_vec)
-Results = zeros(3,length(L_vec));
+function run_test5(alpha_reg, sigma_val, T_final, L_vec, Dt_vec, dt_vec,line,Fontsize)
+Results = zeros(3,length(sigma_val));
 
-for k = 1:length(L_vec)
-    [Results(1,k), Results(2,k), Results(3,k)] = computeSpectralRadius(alpha_reg, sigma_val, T_final, L_vec(k), Dt_vec(k), dt_vec(k));
+for k = 1:length(sigma_val)
+    [Results(1,k), Results(2,k), Results(3,k)] = computeSpectralRadius(alpha_reg, sigma_val(k), T_final, L_vec, Dt_vec, dt_vec);
 end
 
 % Plot results
 figure(555)
-semilogy(L_vec, Results(1,:), '--bo', 'MarkerSize', 4);
+loglog(sigma_val, Results(1,:), '--bo', 'LineWidth', line);
 hold on
-semilogy(L_vec, Results(2,:), '-g', 'LineWidth', 1);
-semilogy(L_vec, Results(3,:), '-r', 'LineWidth', 2);
+loglog(sigma_val, Results(2,:), '-sg', 'LineWidth', line);
+loglog(sigma_val, Results(3,:), '-dr', 'LineWidth', line);
 grid on
-xlabel('$L$', 'Interpreter', 'latex');
-ylabel('$\rho$', 'Interpreter', 'latex');
+xlabel('$\sigma$', 'Interpreter', 'latex','FontSize', Fontsize);
+ylabel('$\rho$', 'Interpreter', 'latex','FontSize', Fontsize);
+legend('$\rho$','Estimate $(35)$', 'Estimate $(34)$', 'Interpreter', 'latex','FontSize', Fontsize);
+set(gca,'FontSize',Fontsize);
 hold off
 end
 
